@@ -57,6 +57,8 @@ class MainWindow(QtGui.QMainWindow):
         
         
         listModel = QtGui.QStandardItemModel()
+        listModel.setVerticalHeaderItem(0, QtGui.QStandardItem("Ship"))
+        listModel.setVerticalHeaderItem(1, QtGui.QStandardItem("Variant"))
         col = 0
         for ship in self.ships:
             if ship['side'] == 'PLAYER':
