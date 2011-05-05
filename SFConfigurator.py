@@ -1,6 +1,6 @@
 import re
 import sys
-import json
+import ast
 from PyQt4 import QtCore, QtGui, uic
 
 STARFARER_ROOT = r'C:\Program Files (x86)\Fractal Softworks\Starfarer'
@@ -27,33 +27,49 @@ class MainWindow(QtGui.QMainWindow):
         print missionPath
         print STARFARER_MISSIONS_LIST
         
-        playerShips = []
-        enemyShips = []
+        self.ships = []
         
         with open(missionPath + '\MissionDefinition.java', 'r') as file:
             for line in file.readlines():
                 line = line.split('//')[0].strip()
                 if 'api.addToFleet' in line:
-                    if 'FleetSide.PLAYER' in line:
-                        playerShips.append(line)
-                    else:
-                        enemyShips.append(line)
+                    # Find all the lines that add ships to the battle
+                    matchPattern = r'api\.addToFleet *?\( *?FleetSide\.(.+?) *?, *?"(.+?)" *?, *?FleetMemberType\.(.+?) *?,( *?"(.+?) *?,)? *? ?(.+?) *?\) *?;'
+                    line = re.match(matchPattern, line)
+                    if line != None:
+                        groups = line.groups()
+                        self.ships.append({
+                            'side':      groups[0],
+                            'variant':   groups[1],
+                            'type':      groups[2],
+                            'name':      groups[4],
+                            'important': groups[5]
+                        })
         
-        with open(missionPath + '\descriptor.json') as file:
-            descriptor = json.load(file)
+        self.playerShipModel = QtGui.QStringListModel()
+        playerShipList = QtCore.QStringList()
         
-        print 'Player Ships'
-        for i in playerShips:
-            print i
-        print
+        self.enemyShipModel = QtGui.QStringListModel()
+        enemyShipList = QtCore.QStringList()
         
-        print 'Enemy Ships'
-        for i in enemyShips:
-            print i
-        print
         
-        print descriptor
-    
+        for ship in self.ships:
+            if ship['side'] == 'PLAYER':
+                playerShipList << ship['variant']
+            else:
+                enemyShipList << ship['variant']
+        
+        self.playerShipModel.setStringList(playerShipList)
+        self.ui.playerShips.setModel(self.playerShipModel)
+        
+        self.enemyShipModel.setStringList(enemyShipList)
+        self.ui.enemyShips.setModel(self.enemyShipModel)
+        
+        with open(missionPath + '\descriptor.json', 'r') as file:
+            self.missionDescriptor = ast.literal_eval(file.read())
+        
+        with open(STARFARER_MISSIONS_LIST, 'r') as file:
+            self.missionList = ast.literal_eval(file.read())
     
     def addShipCallback(self, player=True):
         if player:

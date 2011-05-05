@@ -104,7 +104,14 @@
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout_2">
            <item>
-            <widget class="QListView" name="playerFleetList"/>
+            <widget class="QListView" name="playerShips">
+             <property name="movement">
+              <enum>QListView::Static</enum>
+             </property>
+             <property name="viewMode">
+              <enum>QListView::ListMode</enum>
+             </property>
+            </widget>
            </item>
            <item>
             <layout class="QVBoxLayout" name="verticalLayout_4">
@@ -153,7 +160,7 @@
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout_3">
            <item>
-            <widget class="QListView" name="enemyFleetList"/>
+            <widget class="QListView" name="enemyShips"/>
            </item>
            <item>
             <layout class="QVBoxLayout" name="verticalLayout_5">
