@@ -1,10 +1,11 @@
+import os
 import re
 import sys
 import ast
 from PyQt4 import QtCore, QtGui, uic
 
-STARFARER_ROOT = r'C:\Program Files (x86)\Fractal Softworks\Starfarer'
-STARFARER_DATA = STARFARER_ROOT + r'\starfarer-all\data'
+STARFARER_ROOT = r'C:\Program Files (x86)\Fractal Softworks\Starfarer\starfarer-all'
+STARFARER_DATA = STARFARER_ROOT + r'\data'
 STARFARER_MISSIONS = STARFARER_DATA + r'\missions'
 STARFARER_MISSIONS_LIST = STARFARER_MISSIONS + '\mission_list.json'
 
@@ -46,24 +47,36 @@ class MainWindow(QtGui.QMainWindow):
                             'important': groups[5]
                         })
         
-        self.playerShipModel = QtGui.QStringListModel()
-        playerShipList = QtCore.QStringList()
+#        listModel = QtGui.QStandardItemModel()
+#        icon = QtGui.QIcon(r'C:\Program Files (x86)\Fractal Softworks\Starfarer\starfarer-all\graphics\ships\astral_cv.png')
+#        listModel.setItem(0, 0, QtGui.QStandardItem(icon, ""))
         
-        self.enemyShipModel = QtGui.QStringListModel()
-        enemyShipList = QtCore.QStringList()
+#        self.ui.playerShips.setModel(listModel)
+#        self.ui.playerShips.resizeRowsToContents()
+#        self.ui.playerShips.resizeColumnsToContents()
         
         
+        listModel = QtGui.QStandardItemModel()
+        col = 0
         for ship in self.ships:
             if ship['side'] == 'PLAYER':
-                playerShipList << ship['variant']
-            else:
-                enemyShipList << ship['variant']
-        
-        self.playerShipModel.setStringList(playerShipList)
-        self.ui.playerShips.setModel(self.playerShipModel)
-        
-        self.enemyShipModel.setStringList(enemyShipList)
-        self.ui.enemyShips.setModel(self.enemyShipModel)
+                variantLocation = STARFARER_DATA + '\\variants\\' + ship['variant'] + '.variant'
+                if os.path.exists(variantLocation):
+                    with open(variantLocation, 'r') as f:
+                        variantData = ast.literal_eval(f.read())
+                    hullLocation = STARFARER_DATA + '\\hulls\\' + variantData['hullId'] + '.ship'
+                    if os.path.exists(hullLocation):
+                        with open(hullLocation, 'r') as f:
+                            hullData = ast.literal_eval(f.read())
+                        spriteLocation = STARFARER_ROOT + os.sep + hullData['spriteName']
+                        if os.path.exists(spriteLocation):
+                            icon = QtGui.QIcon(spriteLocation)
+                            listModel.setItem(0, col, QtGui.QStandardItem(icon, ""))
+                            listModel.setItem(1, col, QtGui.QStandardItem(ship['variant']))
+                            col += 1
+        self.ui.playerShips.setModel(listModel)
+        self.ui.playerShips.resizeRowsToContents()
+        self.ui.playerShips.resizeColumnsToContents()
         
         with open(missionPath + '\descriptor.json', 'r') as file:
             self.missionDescriptor = ast.literal_eval(file.read())

@@ -104,13 +104,22 @@
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout_2">
            <item>
-            <widget class="QListView" name="playerShips">
-             <property name="movement">
-              <enum>QListView::Static</enum>
+            <widget class="QTableView" name="playerShips">
+             <property name="iconSize">
+              <size>
+               <width>200</width>
+               <height>200</height>
+              </size>
              </property>
-             <property name="viewMode">
-              <enum>QListView::ListMode</enum>
+             <property name="verticalScrollMode">
+              <enum>QAbstractItemView::ScrollPerPixel</enum>
              </property>
+             <property name="horizontalScrollMode">
+              <enum>QAbstractItemView::ScrollPerPixel</enum>
+             </property>
+             <attribute name="horizontalHeaderMinimumSectionSize">
+              <number>90</number>
+             </attribute>
             </widget>
            </item>
            <item>
@@ -160,7 +169,7 @@
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout_3">
            <item>
-            <widget class="QListView" name="enemyShips"/>
+            <widget class="QTableView" name="enemyShips"/>
            </item>
            <item>
             <layout class="QVBoxLayout" name="verticalLayout_5">
