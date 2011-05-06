@@ -22,14 +22,27 @@ class MainWindow(QtGui.QMainWindow):
         
         self.connect(self.ui.addEnemyShipButton, QtCore.SIGNAL('clicked()'), lambda: self.addShipCallback(False))
         self.connect(self.ui.removeEnemyShipButton, QtCore.SIGNAL('clicked()'), lambda: self.removeShipCallback(False))
+        
+        self.init_data(STARFARER_ROOT)
+        return
+    
+    def init_data(self, sfRoot):
+        self.sfRoot = sfRoot
+        self.sfData = self.sfRoot + r'\data'
+        self.sfMissions = self.sfData + r'\missions'
+        self.sfMissionList = self.sfMissions + r'\mission_list.json'
+        self.sfHulls = self.sfData + r'\hulls'
+        self.sfVariants = self.sfData + r'\variants'
+        self.sfFighters = self.sfVariants + r'\fighters'
+        
+        self.allShips = Null
+        for variant in os.listdir(self.sfVariants):
+            print variant
     
     def loadMissionCallback(self):
         missionPath = filename=QtGui.QFileDialog.getExistingDirectory(self, 'Select Mission Directory', STARFARER_MISSIONS)
-        print missionPath
-        print STARFARER_MISSIONS_LIST
         
-        self.ships = []
-        
+        self.missionShips = []
         with open(missionPath + '\MissionDefinition.java', 'r') as file:
             for line in file.readlines():
                 line = line.split('//')[0].strip()
@@ -39,7 +52,7 @@ class MainWindow(QtGui.QMainWindow):
                     line = re.match(matchPattern, line)
                     if line != None:
                         groups = line.groups()
-                        self.ships.append({
+                        self.missionShips.append({
                             'side':      groups[0],
                             'variant':   groups[1],
                             'type':      groups[2],
@@ -47,43 +60,66 @@ class MainWindow(QtGui.QMainWindow):
                             'important': groups[5]
                         })
         
-#        listModel = QtGui.QStandardItemModel()
-#        icon = QtGui.QIcon(r'C:\Program Files (x86)\Fractal Softworks\Starfarer\starfarer-all\graphics\ships\astral_cv.png')
-#        listModel.setItem(0, 0, QtGui.QStandardItem(icon, ""))
+        wingData = {}
+        with open(self.sfHulls + '\wing_data.csv', 'r') as f:
+            fileLines = f.readlines()
+            headers = fileLines[0].split(',')
+            idIndex = headers.index('id')
+            for line in fileLines[1:]:
+                line = line.strip('\n')
+                line = line.split(',')
+                wingData[line[idIndex]] = dict([(headers[i], data) for i, data in enumerate(line)])
         
-#        self.ui.playerShips.setModel(listModel)
-#        self.ui.playerShips.resizeRowsToContents()
-#        self.ui.playerShips.resizeColumnsToContents()
+        playerListModel = QtGui.QStandardItemModel()
+        enemyListModel = QtGui.QStandardItemModel()
+        for listModel in (playerListModel, enemyListModel):
+            listModel.setVerticalHeaderItem(0, QtGui.QStandardItem("Ship"))
+            listModel.setVerticalHeaderItem(1, QtGui.QStandardItem("Variant"))
         
+        playerCol = 0
+        enemyCol = 0
+        for ship in self.missionShips:
+            if ship['type'] == 'SHIP':
+                variantLocation = self.sfVariants + os.sep + ship['variant'] + '.variant'
+                iconText = ''
+            else:
+                variant = wingData[ship['variant']]['variant']
+                variantLocation = self.sfFighters + os.sep + variant + '.variant'
+                iconText = "x%s" % wingData[ship['variant']]['num']
+            print variantLocation
+            if os.path.exists(variantLocation):
+                with open(variantLocation, 'r') as f:
+                    variantData = ast.literal_eval(f.read())
+                hullLocation = self.sfHulls + os.sep + variantData['hullId'] + '.ship'
+                if os.path.exists(hullLocation):
+                    with open(hullLocation, 'r') as f:
+                        hullData = ast.literal_eval(f.read())
+                    spriteLocation = self.sfRoot + os.sep + hullData['spriteName']
+                    if os.path.exists(spriteLocation):
+                        icon = QtGui.QIcon(spriteLocation)
+                        if ship['side'] == 'PLAYER':
+                            listModel = playerListModel
+                            playerCol += 1
+                            col = playerCol
+                        else:
+                            listModel = enemyListModel
+                            enemyCol += 1
+                            col = enemyCol
+                        listModel.setItem(0, col-1, QtGui.QStandardItem(icon, iconText))
+                        listModel.setItem(1, col-1, QtGui.QStandardItem(ship['variant']))
         
-        listModel = QtGui.QStandardItemModel()
-        listModel.setVerticalHeaderItem(0, QtGui.QStandardItem("Ship"))
-        listModel.setVerticalHeaderItem(1, QtGui.QStandardItem("Variant"))
-        col = 0
-        for ship in self.ships:
-            if ship['side'] == 'PLAYER':
-                variantLocation = STARFARER_DATA + '\\variants\\' + ship['variant'] + '.variant'
-                if os.path.exists(variantLocation):
-                    with open(variantLocation, 'r') as f:
-                        variantData = ast.literal_eval(f.read())
-                    hullLocation = STARFARER_DATA + '\\hulls\\' + variantData['hullId'] + '.ship'
-                    if os.path.exists(hullLocation):
-                        with open(hullLocation, 'r') as f:
-                            hullData = ast.literal_eval(f.read())
-                        spriteLocation = STARFARER_ROOT + os.sep + hullData['spriteName']
-                        if os.path.exists(spriteLocation):
-                            icon = QtGui.QIcon(spriteLocation)
-                            listModel.setItem(0, col, QtGui.QStandardItem(icon, ""))
-                            listModel.setItem(1, col, QtGui.QStandardItem(ship['variant']))
-                            col += 1
-        self.ui.playerShips.setModel(listModel)
+        self.ui.playerShips.setModel(playerListModel)
         self.ui.playerShips.resizeRowsToContents()
         self.ui.playerShips.resizeColumnsToContents()
+        
+        self.ui.enemyShips.setModel(enemyListModel)
+        self.ui.enemyShips.resizeRowsToContents()
+        self.ui.enemyShips.resizeColumnsToContents()
         
         with open(missionPath + '\descriptor.json', 'r') as file:
             self.missionDescriptor = ast.literal_eval(file.read())
         
-        with open(STARFARER_MISSIONS_LIST, 'r') as file:
+        with open(self.sfMissionList, 'r') as file:
             self.missionList = ast.literal_eval(file.read())
     
     def addShipCallback(self, player=True):
