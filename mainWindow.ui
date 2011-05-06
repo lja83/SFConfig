@@ -262,6 +262,7 @@
      <string>File</string>
     </property>
     <addaction name="actionLoad_Mission"/>
+    <addaction name="actionSave_Mission"/>
     <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
@@ -287,6 +288,11 @@
   <action name="actionLoad_Mission">
    <property name="text">
     <string>Load Mission</string>
+   </property>
+  </action>
+  <action name="actionSave_Mission">
+   <property name="text">
+    <string>Save Mission</string>
    </property>
   </action>
  </widget>
