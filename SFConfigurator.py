@@ -45,7 +45,7 @@ class MainWindow(QtGui.QMainWindow):
         wingDataHeaders = wingDataLines[0]
         wingIdIndex = wingDataHeaders.index('id')
         self.wingData = dict([
-            (wingDataLine[wingIdIndex], dict(zip(wingDataHeaders, wingDataLine))) 
+            (wingDataLine[wingIdIndex], dict(zip(wingDataHeaders, wingDataLine)))
             for wingDataLine in wingDataLines[1:]
             if wingDataLine[wingIdIndex] != ''
         ])
@@ -61,6 +61,13 @@ class MainWindow(QtGui.QMainWindow):
             with open(self.sfHulls + os.sep + ship, 'r') as f:
                 s = ast.literal_eval(f.read())
                 self.allHulls[s['hullId']] = s
+        
+        self.allSprites = {}
+        for id, hull in self.allHulls.iteritems():
+            spriteLocation = self.sfRoot + os.sep + hull['spriteName']
+            icon = QtGui.QIcon(spriteLocation)
+            self.allSprites[id] = icon
+            
     
     def loadMissionCallback(self):
         missionPath = QtGui.QFileDialog.getExistingDirectory(self, 'Select Mission Directory', self.sfMissions)
@@ -84,7 +91,9 @@ class MainWindow(QtGui.QMainWindow):
                             'name':      groups[4],
                             'important': groups[5]
                         })
-        
+        self.populateFleets()
+    
+    def populateFleets(self):
         self.playerListModel = QtGui.QStandardItemModel()
         self.ui.playerShips.setModel(self.playerListModel)
         self.enemyListModel = QtGui.QStandardItemModel()
@@ -100,27 +109,27 @@ class MainWindow(QtGui.QMainWindow):
         for ship in self.missionShips:
             if ship['type'] == 'SHIP':
                 variant = self.allShips[ship['variant']]
-                hull = self.allHulls[variant['hullId']]
                 iconText = ''
             else:
-                variant = self.allWings[ship['variant']]
-                hull = self.allHulls[variant['hullId']]
-                iconText = "x%s" % wingData[ship['variant']]['num']
+                variantName = self.wingData[ship['variant']]['variant']
+                variant = self.allWings[variantName]
+                iconText = "x%s" % self.wingData[ship['variant']]['num']
             
-            spriteLocation = self.sfRoot + os.sep + hull['spriteName']
-            if os.path.exists(spriteLocation):
-                icon = QtGui.QIcon(spriteLocation)
-                if ship['side'] == 'PLAYER':
-                    listModel = self.playerListModel
-                    playerCol += 1
-                    col = playerCol
-                else:
-                    listModel = self.enemyListModel
-                    enemyCol += 1
-                    col = enemyCol
-                listModel.setItem(0, col-1, QtGui.QStandardItem(icon, iconText))
-                listModel.setItem(1, col-1, QtGui.QStandardItem(ship['variant']))
-                listModel.setItem(2, col-1, QtGui.QStandardItem(ship['name'] if ship['name'] else ''))
+            variantName = ship['variant']
+            hullId = variant['hullId']
+            shipName = ship['name']
+            
+            if ship['side'] == 'PLAYER':
+                listModel = self.playerListModel
+                playerCol += 1
+                col = playerCol
+            else:
+                listModel = self.enemyListModel
+                enemyCol += 1
+                col = enemyCol
+            listModel.setItem(0, col-1, QtGui.QStandardItem(self.allSprites[hullId], iconText))
+            listModel.setItem(1, col-1, QtGui.QStandardItem(variantName))
+            listModel.setItem(2, col-1, QtGui.QStandardItem(shipName if shipName else ''))
         
         self.ui.playerShips.resizeRowsToContents()
         self.ui.playerShips.resizeColumnsToContents()
@@ -133,7 +142,7 @@ class MainWindow(QtGui.QMainWindow):
         with open(self.sfMissionList, 'r') as file:
             self.missionList = ast.literal_eval(file.read())
     
-    def getShipLines(self, listModel, side='PLAYER'):
+    def makeShipLines(self, listModel, side='PLAYER'):
         lines = []
         lineWithoutName = 'api.addToFleet(FleetSide.%(side)s, "%(variant)s", FleetMemberType.%(type)s, %(important)s);'
         lineWithName    = 'api.addToFleet(FleetSide.%(side)s, "%(variant)s", FleetMemberType.%(type)s, "%(name)s", %(important)s);'
@@ -151,8 +160,8 @@ class MainWindow(QtGui.QMainWindow):
         return '\n'.join(lines)
     
     def saveMissionCallback(self):
-        playerShipLines = self.getShipLines(self.playerListModel, 'PLAYER')
-        enemyShipLines = self.getShipLines(self.enemyListModel, 'ENEMY')
+        playerShipLines = self.makeShipLines(self.playerListModel, 'PLAYER')
+        enemyShipLines = self.makeShipLines(self.enemyListModel, 'ENEMY')
         print playerShipLines
         print enemyShipLines
     
