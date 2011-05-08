@@ -67,14 +67,16 @@ class MainWindow(QtGui.QMainWindow):
             spriteLocation = self.sfRoot + os.sep + hull['spriteName']
             icon = QtGui.QIcon(spriteLocation)
             self.allSprites[id] = icon
-            
+        
+        with open(self.sfMissionList, 'r') as file:
+            self.missionList = ast.literal_eval(file.read())
     
     def loadMissionCallback(self):
         missionPath = QtGui.QFileDialog.getExistingDirectory(self, 'Select Mission Directory', self.sfMissions)
         if not os.path.exists(missionPath):
             return
         
-        self.missionShips = []
+        missionShips = []
         with open(missionPath + '\MissionDefinition.java', 'r') as file:
             for line in file.readlines():
                 line = line.split('//')[0].strip()
@@ -84,16 +86,30 @@ class MainWindow(QtGui.QMainWindow):
                     line = re.match(matchPattern, line)
                     if line != None:
                         groups = line.groups()
-                        self.missionShips.append({
+                        missionShips.append({
                             'side':      groups[0],
                             'variant':   groups[1],
                             'type':      groups[2],
                             'name':      groups[4],
                             'important': groups[5]
                         })
-        self.populateFleets()
+        
+        with open(missionPath + '\descriptor.json', 'r') as file:
+            missionDescriptor = ast.literal_eval(file.read())
+        
+        with open(missionPath + '\mission_text.txt', 'r') as file:
+            missionText = file.read()
+        
+        self.missionData = {
+            'path': missionPath,
+            'fleets': missionShips,
+            'text': missionText,
+            'descriptor': missionDescriptor,
+        }
+        
+        self.populateFleets(self.missionData['fleets'])
     
-    def populateFleets(self):
+    def populateFleets(self, missionShips):
         self.playerListModel = QtGui.QStandardItemModel()
         self.ui.playerShips.setModel(self.playerListModel)
         self.enemyListModel = QtGui.QStandardItemModel()
@@ -106,7 +122,7 @@ class MainWindow(QtGui.QMainWindow):
         
         playerCol = 0
         enemyCol = 0
-        for ship in self.missionShips:
+        for ship in missionShips:
             if ship['type'] == 'SHIP':
                 variant = self.allShips[ship['variant']]
                 iconText = ''
@@ -135,12 +151,6 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.playerShips.resizeColumnsToContents()
         self.ui.enemyShips.resizeRowsToContents()
         self.ui.enemyShips.resizeColumnsToContents()
-        
-        with open(missionPath + '\descriptor.json', 'r') as file:
-            self.missionDescriptor = ast.literal_eval(file.read())
-        
-        with open(self.sfMissionList, 'r') as file:
-            self.missionList = ast.literal_eval(file.read())
     
     def makeShipLines(self, listModel, side='PLAYER'):
         lines = []
