@@ -40,6 +40,16 @@ class MainWindow(QtGui.QMainWindow):
                 v = ast.literal_eval(f.read())
                 self.allShips[v['variantId']] = v
         
+        with open(self.sfHulls + os.sep + 'wing_data.csv') as f:
+            wingDataLines = map(lambda x: x.strip('\n').split(','), f.readlines())
+        wingDataHeaders = wingDataLines[0]
+        wingIdIndex = wingDataHeaders.index('id')
+        self.wingData = dict([
+            (wingDataLine[wingIdIndex], dict(zip(wingDataHeaders, wingDataLine))) 
+            for wingDataLine in wingDataLines[1:]
+            if wingDataLine[wingIdIndex] != ''
+        ])
+        
         self.allWings = {}
         for wing in (item for item in os.listdir(self.sfFighters) if '.variant' in item):
             with open(self.sfFighters + os.sep + wing, 'r') as f:
@@ -74,17 +84,6 @@ class MainWindow(QtGui.QMainWindow):
                             'name':      groups[4],
                             'important': groups[5]
                         })
-                        print self.missionShips[-1]['name']
-        
-        wingData = {}
-        with open(self.sfHulls + '\wing_data.csv', 'r') as f:
-            fileLines = f.readlines()
-            headers = fileLines[0].split(',')
-            idIndex = headers.index('id')
-            for line in fileLines[1:]:
-                line = line.strip('\n')
-                line = line.split(',')
-                wingData[line[idIndex]] = dict([(headers[i], data) for i, data in enumerate(line)])
         
         self.playerListModel = QtGui.QStandardItemModel()
         self.ui.playerShips.setModel(self.playerListModel)
@@ -100,34 +99,28 @@ class MainWindow(QtGui.QMainWindow):
         enemyCol = 0
         for ship in self.missionShips:
             if ship['type'] == 'SHIP':
-                variantLocation = self.sfVariants + os.sep + ship['variant'] + '.variant'
+                variant = self.allShips[ship['variant']]
+                hull = self.allHulls[variant['hullId']]
                 iconText = ''
             else:
-                variant = wingData[ship['variant']]['variant']
-                variantLocation = self.sfFighters + os.sep + variant + '.variant'
+                variant = self.allWings[ship['variant']]
+                hull = self.allHulls[variant['hullId']]
                 iconText = "x%s" % wingData[ship['variant']]['num']
-            print variantLocation
-            if os.path.exists(variantLocation):
-                with open(variantLocation, 'r') as f:
-                    variantData = ast.literal_eval(f.read())
-                hullLocation = self.sfHulls + os.sep + variantData['hullId'] + '.ship'
-                if os.path.exists(hullLocation):
-                    with open(hullLocation, 'r') as f:
-                        hullData = ast.literal_eval(f.read())
-                    spriteLocation = self.sfRoot + os.sep + hullData['spriteName']
-                    if os.path.exists(spriteLocation):
-                        icon = QtGui.QIcon(spriteLocation)
-                        if ship['side'] == 'PLAYER':
-                            listModel = self.playerListModel
-                            playerCol += 1
-                            col = playerCol
-                        else:
-                            listModel = self.enemyListModel
-                            enemyCol += 1
-                            col = enemyCol
-                        listModel.setItem(0, col-1, QtGui.QStandardItem(icon, iconText))
-                        listModel.setItem(1, col-1, QtGui.QStandardItem(ship['variant']))
-                        listModel.setItem(2, col-1, QtGui.QStandardItem(ship['name'] if ship['name'] else ''))
+            
+            spriteLocation = self.sfRoot + os.sep + hull['spriteName']
+            if os.path.exists(spriteLocation):
+                icon = QtGui.QIcon(spriteLocation)
+                if ship['side'] == 'PLAYER':
+                    listModel = self.playerListModel
+                    playerCol += 1
+                    col = playerCol
+                else:
+                    listModel = self.enemyListModel
+                    enemyCol += 1
+                    col = enemyCol
+                listModel.setItem(0, col-1, QtGui.QStandardItem(icon, iconText))
+                listModel.setItem(1, col-1, QtGui.QStandardItem(ship['variant']))
+                listModel.setItem(2, col-1, QtGui.QStandardItem(ship['name'] if ship['name'] else ''))
         
         self.ui.playerShips.resizeRowsToContents()
         self.ui.playerShips.resizeColumnsToContents()
