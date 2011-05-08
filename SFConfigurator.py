@@ -4,7 +4,8 @@ import sys
 import ast
 from PyQt4 import QtCore, QtGui, uic
 
-STARFARER_ROOT = r'C:\Program Files (x86)\Fractal Softworks\Starfarer\starfarer-all'
+SYS_ROOT = r'C:\Program Files'
+STARFARER_ROOT = SYS_ROOT + r'\Fractal Softworks\Starfarer\starfarer-all'
 
 class MainWindow(QtGui.QMainWindow):
     def __init__(self, parent = None):
@@ -33,9 +34,23 @@ class MainWindow(QtGui.QMainWindow):
         self.sfVariants = self.sfData + r'\variants'
         self.sfFighters = self.sfVariants + r'\fighters'
         
-        self.allShips = None
-        for variant in os.listdir(self.sfVariants):
-            print variant
+        self.allShips = {}
+        for variant in (item for item in os.listdir(self.sfVariants) if '.variant' in item):
+            with open(self.sfVariants + os.sep + variant, 'r') as f:
+                v = ast.literal_eval(f.read())
+                self.allShips[v['variantId']] = v
+        
+        self.allWings = {}
+        for wing in (item for item in os.listdir(self.sfFighters) if '.variant' in item):
+            with open(self.sfFighters + os.sep + wing, 'r') as f:
+                v = ast.literal_eval(f.read())
+                self.allWings[v['variantId']] = v
+        
+        self.allHulls = {}
+        for ship in (item for item in os.listdir(self.sfHulls) if '.ship' in item):
+            with open(self.sfHulls + os.sep + ship, 'r') as f:
+                s = ast.literal_eval(f.read())
+                self.allHulls[s['hullId']] = s
     
     def loadMissionCallback(self):
         missionPath = QtGui.QFileDialog.getExistingDirectory(self, 'Select Mission Directory', self.sfMissions)
