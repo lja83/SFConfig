@@ -83,7 +83,7 @@ class MainWindow(QtGui.QMainWindow):
                 line = line.split('//')[0].strip()
                 if 'api.addToFleet' in line:
                     # Find all the lines that add ships to the battle
-                    matchPattern = r'api\.addToFleet *?\( *?FleetSide\.(.+?) *?, *?"(.+?)" *?, *?FleetMemberType\.(.+?) *?,( *?"(.+?)" *?,)? *? ?(.+?) *?\) *?;'
+                    matchPattern = r'api\.addToFleet *?\( *?FleetSide\.(.+?) *?, *?"(.+?)" *?, *?FleetMemberType\.(.+?) *?,( *?"(.+?)" *?,)? *? ?(.+?) *?\)'
                     line = re.match(matchPattern, line)
                     if line != None:
                         groups = line.groups()
