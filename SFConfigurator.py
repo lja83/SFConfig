@@ -77,6 +77,7 @@ class MainWindow(QtGui.QMainWindow):
             return
         
         missionShips = []
+        missionObjectives = []
         with open(missionPath + '\MissionDefinition.java', 'r') as file:
             for line in file.readlines():
                 line = line.split('//')[0].strip()
@@ -93,6 +94,12 @@ class MainWindow(QtGui.QMainWindow):
                             'name':      groups[4],
                             'important': groups[5]
                         })
+                elif 'api.addBriefingItem' in line:
+                    matchPattern = r'api.addBriefingItem *?\( *?"(.+?)" *?\)'
+                    line = re.match(matchPattern, line)
+                    if line != None:
+                        groups = line.groups()
+                        missionObjectives.append(groups[0])
         
         with open(missionPath + '\descriptor.json', 'r') as file:
             missionDescriptor = ast.literal_eval(file.read())
@@ -105,14 +112,29 @@ class MainWindow(QtGui.QMainWindow):
             'fleets': missionShips,
             'text': missionText,
             'descriptor': missionDescriptor,
+            'objectives': missionObjectives,
         }
         
+        self.populateMissionObjectives(self.missionData['objectives'])
+        self.populateMissionName(self.missionData['descriptor']['title'])
+        self.populateMissionText(self.missionData['text'])
         self.populateFleets(self.missionData['fleets'])
+    
+    def populateMissionObjectives(self, objectives):
+        for objective in objectives:
+            print objective
+    
+    def populateMissionName(self, missionName):
+        self.ui.missionNameEdit.setText(missionName)
+    
+    def populateMissionText(self, missionText):
+        self.ui.missionText.setPlainText(missionText)
     
     def populateFleets(self, missionShips):
         self.playerListModel = QtGui.QStandardItemModel()
-        self.ui.playerShips.setModel(self.playerListModel)
         self.enemyListModel = QtGui.QStandardItemModel()
+        
+        self.ui.playerShips.setModel(self.playerListModel)
         self.ui.enemyShips.setModel(self.enemyListModel)
         
         for listModel in (self.playerListModel, self.enemyListModel):
