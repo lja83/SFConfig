@@ -2,6 +2,9 @@ import os
 import re
 import sys
 import ast
+import json
+import shutil
+from templates import *
 from PyQt4 import QtCore, QtGui, uic
 
 SYS_ROOT = r'C:\Program Files (x86)'
@@ -32,6 +35,8 @@ class MainWindow(QtGui.QMainWindow):
         self.sfHulls = self.sfData + r'\hulls'
         self.sfVariants = self.sfData + r'\variants'
         self.sfFighters = self.sfVariants + r'\fighters'
+        
+        self.missionData = None
         
         self.allShips = {}
         for variant in (item for item in os.listdir(self.sfVariants) if '.variant' in item):
@@ -79,7 +84,9 @@ class MainWindow(QtGui.QMainWindow):
         missionPath = QtGui.QFileDialog.getExistingDirectory(self, 'Select Mission Directory', self.sfMissions)
         if not os.path.exists(missionPath):
             return
-        
+        self.loadMission(missionPath)
+    
+    def loadMission(self, missionPath):
         missionShips = []
         missionObjectives = []
         with open(missionPath + '\MissionDefinition.java', 'r') as file:
@@ -190,21 +197,66 @@ class MainWindow(QtGui.QMainWindow):
     def makeBreifingLines(self, objectives, indent = '        '):
         return '\n'.join([indent + 'api.addBriefingItem("' + objective + '");' for objective in objectives])
     
+    def getSaveData(self):
+        missionShips = []
+        for side, listModel in (('PLAYER', self.playerListModel), ('ENEMY', self.enemyListModel)):
+            for column in xrange(listModel.columnCount()):
+                thisShip = {
+                    'variant': listModel.item(1, column).text(),
+                    'name': listModel.item(2, column).text(),
+                    'side': side,
+                    'important': False,           # Not finished yet
+                }
+                thisShip['type'] = 'SHIP' if thisShip['variant'] in self.allShips.keys() else 'FIGHTER_WING'
+                missionShips.append(thisShip)
+        
+        missionDescriptor = {
+            'title': str(self.ui.missionNameEdit.text()),
+            'icon': 'icon.jpg',
+            'difficulty': 'EASY',               # Not finished yet
+        }
+        
+        saveData = {
+            'fleets': missionShips,
+            'text': self.ui.missionText.toPlainText(),
+            'objectives': self.missionData['objectives'],    # Not finished yet
+            'mission_list': self.missionList,
+            'descriptor': missionDescriptor,
+        }
+        return saveData
+    
     def saveMissionCallback(self):
-        missionData = self.missionData
+        saveData = self.getSaveData()
         
         indent = '        '
-        packageName = str(self.ui.missionNameEdit.text())
+        packageName = saveData['descriptor']['title']
         packageName = packageName.lower().replace(' ', '')
+        
+        os.mkdir(packageName)
+        saveDir = packageName + os.sep
+        
         replaceText = {
             'package_name': packageName,
-            'briefing': self.makeBreifingLines(missionData['objectives'], indent),
-            'player_fleet': self.makeShipLines(missionData['fleets'], 'PLAYER', indent),
-            'enemy_fleet': self.makeShipLines(missionData['fleets'], 'ENEMY', indent),
+            'briefing': self.makeBreifingLines(saveData['objectives'], indent),
+            'player_fleet': self.makeShipLines(saveData['fleets'], 'PLAYER', indent),
+            'enemy_fleet': self.makeShipLines(saveData['fleets'], 'ENEMY', indent),
         }
-        newFile = template % replaceText
         
-        print newFile
+        saveData['mission_list']['missions'].append(packageName)
+        
+        with open(saveDir + 'MissionDefinition.java', 'w') as f:
+            f.write(missionDefinition % replaceText)
+        with open(saveDir + 'mission_text.txt', 'w') as f:
+            f.write(saveData['text'])
+        with open(saveDir + 'descriptor.json', 'w') as f:
+            f.write(json.dumps(saveData['descriptor'], indent=4))
+        shutil.copy('icon.jpg', saveDir)
+        
+        with open('mission_list.json', 'w') as f:
+            f.write(json.dumps(saveData['mission_list'], indent=8))
+        
+        self.init_data(self.sfRoot)
+        self.loadMission(saveDir)
     
     def addShipCallback(self, player=True):
         if player:
@@ -220,90 +272,6 @@ class MainWindow(QtGui.QMainWindow):
     
     def quitCallback(self):
         self.Quit()
-
-template = """
-package data.missions.%(package_name)s
-
-import com.fs.starfarer.api.combat.BattleObjectiveAPI;
-import com.fs.starfarer.api.fleet.FleetGoal;
-import com.fs.starfarer.api.fleet.FleetMemberType;
-import com.fs.starfarer.api.mission.FleetSide;
-import com.fs.starfarer.api.mission.MissionDefinitionAPI;
-import com.fs.starfarer.api.mission.MissionDefinitionPlugin;
-
-public class MissionDefinition implements MissionDefinitionPlugin {
-
-    public void defineMission(MissionDefinitionAPI api) {
-
-        // Set up the fleets so we can add ships and fighter wings to them.
-        // In this scenario, the fleets are attacking each other, but
-        // in other scenarios, a fleet may be defending or trying to escape
-        api.initFleet(FleetSide.PLAYER, "ISS", FleetGoal.ATTACK, false);
-        api.initFleet(FleetSide.ENEMY, "", FleetGoal.ATTACK, true);
-
-        // Set a small blurb for each fleet that shows up on the mission detail and
-        // mission results screens to identify each side.
-        api.setFleetTagline(FleetSide.PLAYER, "ISS Hamatsu and ISS Black Star with drone escort");
-        api.setFleetTagline(FleetSide.ENEMY, "Suspected Cult of Lud forces");
-        
-%(briefing)s
-        
-%(player_fleet)s
-        
-%(enemy_fleet)s
-        
-        // Set up the map.
-        // 12000x8000 is actually somewhat small, making for a faster-paced mission.
-        float width = 12000f;
-        float height = 8000f;
-        api.initMap((float)-width/2f, (float)width/2f, (float)-height/2f, (float)height/2f);
-        
-        float minX = -width/2;
-        float minY = -height/2;
-        
-        // All the addXXX methods take a pair of coordinates followed by data for
-        // whatever object is being added.
-        
-        // Add two big nebula clouds
-        api.addNebula(minX + width * 0.75f, minY + height * 0.5f, 2000);
-        api.addNebula(minX + width * 0.25f, minY + height * 0.5f, 1000);
-        
-        // And a few random ones to spice up the playing field.
-        // A similar approach can be used to randomize everything
-        // else, including fleet composition.
-        for (int i = 0; i < 5; i++) {
-            float x = (float) Math.random() * width - width/2;
-            float y = (float) Math.random() * height - height/2;
-            float radius = 100f + (float) Math.random() * 400f; 
-            api.addNebula(x, y, radius);
-        }
-        
-        // Add objectives. These can be captured by each side
-        // and provide stat bonuses and extra command points to
-        // bring in reinforcements.
-        // Reinforcements only matter for large fleets - in this
-        // case, assuming a 100 command point battle size,
-        // both fleets will be able to deploy fully right away.
-        api.addObjective(minX + width * 0.75f, minY + height * 0.5f, 
-                         "sensor_array", BattleObjectiveAPI.Importance.NORMAL);
-        api.addObjective(minX + width * 0.25f, minY + height * 0.5f, 
-                         "nav_buoy", BattleObjectiveAPI.Importance.NORMAL);
-        
-        // Add an asteroid field going diagonally across the
-        // battlefield, 2000 pixels wide, with a maximum of 
-        // 100 asteroids in it.
-        // 20-70 is the range of asteroid speeds.
-        api.addAsteroidField(minY, minY, 45, 2000f,
-                                20f, 70f, 100);
-        
-        // Add some planets.  These are defined in data/config/planets.json.
-        api.addPlanet(minX + width * 0.2f, minY + height * 0.8f, 320f, "star_yellow", 300f);
-        api.addPlanet(minX + width * 0.8f, minY + height * 0.8f, 256f, "desert", 250f);
-        api.addPlanet(minX + width * 0.55f, minY + height * 0.25f, 200f, "cryovolcanic", 200f);
-    }
-
-}
-"""
 
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
