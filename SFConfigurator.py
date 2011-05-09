@@ -178,30 +178,31 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.enemyShips.resizeRowsToContents()
         self.ui.enemyShips.resizeColumnsToContents()
     
-    def makeShipLines(self, listModel, side='PLAYER', indent = '        '):
+    def makeShipLines(self, fleets, side='PLAYER', indent = '        '):
         lines = []
         lineWithoutName = indent + 'api.addToFleet(FleetSide.%(side)s, "%(variant)s", FleetMemberType.%(type)s, %(important)s);'
         lineWithName    = indent + 'api.addToFleet(FleetSide.%(side)s, "%(variant)s", FleetMemberType.%(type)s, "%(name)s", %(important)s);'
-        for i in xrange(listModel.columnCount()):
-            variantName = listModel.item(1, i).text()
-            shipName = listModel.item(2, i).text()
-            thisShip = {
-                'side': side,
-                'variant': variantName,
-                'type': 'FIGHTER_WING' if 'wing' in str(variantName).lower() else 'SHIP',
-                'name': shipName,
-                'important': 'false',
-            }
-            lines.append((lineWithName if thisShip['name'] else lineWithoutName) % thisShip)
+        for ship in fleets:
+            if ship['side'] == side:
+                lines.append((lineWithName if ship['name'] else lineWithoutName) % ship)
         return '\n'.join(lines)
     
+    def makeBreifingLines(self, objectives, indent = '        '):
+        return '\n'.join([indent + 'api.addBriefingItem("' + objective + '");' for objective in objectives])
+    
     def saveMissionCallback(self):
+        missionData = self.missionData
+        
         indent = '        '
-        playerShipLines = self.makeShipLines(self.playerListModel, 'PLAYER', indent)
-        enemyShipLines = self.makeShipLines(self.enemyListModel, 'ENEMY', indent)
-        newFile = template
-        newFile = newFile.replace(indent + r'/*<<PLAYER_FLEET>>*/', playerShipLines)
-        newFile = newFile.replace(indent + r'/*<<ENEMY_FLEET>>*/', enemyShipLines)
+        packageName = str(self.ui.missionNameEdit.text())
+        packageName = packageName.lower().replace(' ', '')
+        replaceText = {
+            'package_name': packageName,
+            'briefing': self.makeBreifingLines(missionData['objectives'], indent),
+            'player_fleet': self.makeShipLines(missionData['fleets'], 'PLAYER', indent),
+            'enemy_fleet': self.makeShipLines(missionData['fleets'], 'ENEMY', indent),
+        }
+        newFile = template % replaceText
         
         print newFile
     
@@ -221,7 +222,7 @@ class MainWindow(QtGui.QMainWindow):
         self.Quit()
 
 template = """
-/*<<PACKAGE_NAME>>*/
+package data.missions.%(package_name)s
 
 import com.fs.starfarer.api.combat.BattleObjectiveAPI;
 import com.fs.starfarer.api.fleet.FleetGoal;
@@ -245,15 +246,11 @@ public class MissionDefinition implements MissionDefinitionPlugin {
         api.setFleetTagline(FleetSide.PLAYER, "ISS Hamatsu and ISS Black Star with drone escort");
         api.setFleetTagline(FleetSide.ENEMY, "Suspected Cult of Lud forces");
         
-        // These show up as items in the bulleted list under 
-        // "Tactical Objectives" on the mission detail screen
-        api.addBriefingItem("Defeat all enemy forces");
-        api.addBriefingItem("ISS Black Star & ISS Hamatsu must survive");
-        api.addBriefingItem("Enemy bomber wing poses the biggest threat");
+%(briefing)s
         
-        /*<<PLAYER_FLEET>>*/
+%(player_fleet)s
         
-        /*<<ENEMY_FLEET>>*/
+%(enemy_fleet)s
         
         // Set up the map.
         // 12000x8000 is actually somewhat small, making for a faster-paced mission.
