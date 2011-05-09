@@ -4,7 +4,7 @@ import sys
 import ast
 from PyQt4 import QtCore, QtGui, uic
 
-SYS_ROOT = r'C:\Program Files'
+SYS_ROOT = r'C:\Program Files (x86)'
 STARFARER_ROOT = SYS_ROOT + r'\Fractal Softworks\Starfarer\starfarer-all'
 
 class MainWindow(QtGui.QMainWindow):
@@ -23,7 +23,6 @@ class MainWindow(QtGui.QMainWindow):
         self.connect(self.ui.removeEnemyShipButton, QtCore.SIGNAL('clicked()'), lambda: self.removeShipCallback(False))
         
         self.init_data(STARFARER_ROOT)
-        return
     
     def init_data(self, sfRoot):
         self.sfRoot = sfRoot
@@ -39,16 +38,6 @@ class MainWindow(QtGui.QMainWindow):
             with open(self.sfVariants + os.sep + variant, 'r') as f:
                 v = ast.literal_eval(f.read())
                 self.allShips[v['variantId']] = v
-        
-        with open(self.sfHulls + os.sep + 'wing_data.csv') as f:
-            wingDataLines = map(lambda x: x.strip('\n').split(','), f.readlines())
-        wingDataHeaders = wingDataLines[0]
-        wingIdIndex = wingDataHeaders.index('id')
-        self.wingData = dict([
-            (wingDataLine[wingIdIndex], dict(zip(wingDataHeaders, wingDataLine)))
-            for wingDataLine in wingDataLines[1:]
-            if wingDataLine[wingIdIndex] != ''
-        ])
         
         self.allWings = {}
         for wing in (item for item in os.listdir(self.sfFighters) if '.variant' in item):
@@ -68,8 +57,23 @@ class MainWindow(QtGui.QMainWindow):
             icon = QtGui.QIcon(spriteLocation)
             self.allSprites[id] = icon
         
+        self.wingData = self.readDataFile(self.sfHulls + os.sep + 'wing_data.csv')
+        self.shipData = self.readDataFile(self.sfHulls + os.sep + 'ship_data.csv')
+        
         with open(self.sfMissionList, 'r') as file:
             self.missionList = ast.literal_eval(file.read())
+    
+    def readDataFile(self, dataFilePath):
+        with open(dataFilePath) as f:
+            dataLines = map(lambda x: x.strip('\n').split(','), f.readlines())
+        dataHeaders = dataLines[0]
+        idIndex = dataHeaders.index('id')
+        data = dict([
+            (dataLine[idIndex], dict(zip(dataHeaders, dataLine)))
+            for dataLine in dataLines[1:]
+            if len(dataLine) > idIndex and dataLine[idIndex] != ''
+        ])
+        return data
     
     def loadMissionCallback(self):
         missionPath = QtGui.QFileDialog.getExistingDirectory(self, 'Select Mission Directory', self.sfMissions)
@@ -174,10 +178,10 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.enemyShips.resizeRowsToContents()
         self.ui.enemyShips.resizeColumnsToContents()
     
-    def makeShipLines(self, listModel, side='PLAYER'):
+    def makeShipLines(self, listModel, side='PLAYER', indent = '        '):
         lines = []
-        lineWithoutName = 'api.addToFleet(FleetSide.%(side)s, "%(variant)s", FleetMemberType.%(type)s, %(important)s);'
-        lineWithName    = 'api.addToFleet(FleetSide.%(side)s, "%(variant)s", FleetMemberType.%(type)s, "%(name)s", %(important)s);'
+        lineWithoutName = indent + 'api.addToFleet(FleetSide.%(side)s, "%(variant)s", FleetMemberType.%(type)s, %(important)s);'
+        lineWithName    = indent + 'api.addToFleet(FleetSide.%(side)s, "%(variant)s", FleetMemberType.%(type)s, "%(name)s", %(important)s);'
         for i in xrange(listModel.columnCount()):
             variantName = listModel.item(1, i).text()
             shipName = listModel.item(2, i).text()
@@ -192,10 +196,14 @@ class MainWindow(QtGui.QMainWindow):
         return '\n'.join(lines)
     
     def saveMissionCallback(self):
-        playerShipLines = self.makeShipLines(self.playerListModel, 'PLAYER')
-        enemyShipLines = self.makeShipLines(self.enemyListModel, 'ENEMY')
-        print playerShipLines
-        print enemyShipLines
+        indent = '        '
+        playerShipLines = self.makeShipLines(self.playerListModel, 'PLAYER', indent)
+        enemyShipLines = self.makeShipLines(self.enemyListModel, 'ENEMY', indent)
+        newFile = template
+        newFile = newFile.replace(indent + r'/*<<PLAYER_FLEET>>*/', playerShipLines)
+        newFile = newFile.replace(indent + r'/*<<ENEMY_FLEET>>*/', enemyShipLines)
+        
+        print newFile
     
     def addShipCallback(self, player=True):
         if player:
@@ -212,7 +220,7 @@ class MainWindow(QtGui.QMainWindow):
     def quitCallback(self):
         self.Quit()
 
-"""
+template = """
 /*<<PACKAGE_NAME>>*/
 
 import com.fs.starfarer.api.combat.BattleObjectiveAPI;
