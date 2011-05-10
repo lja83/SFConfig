@@ -70,6 +70,18 @@ class MainWindow(QtGui.QMainWindow):
         with open(self.sfMissionList, 'r') as file:
             self.missionList = ast.literal_eval(file.read())
         
+        self.missionData = {
+            'path': '',
+            'fleets': [],
+            'text': '',
+            'descriptor': {
+                'name': '',
+                'difficulty': 'EASY',
+                'icon': 'icon.jpg',
+             },
+            'objectives': [],
+        }
+        
         self.populateShipBrowser()
     
     def populateShipBrowser(self):
