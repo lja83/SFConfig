@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1251</width>
-    <height>806</height>
+    <width>920</width>
+    <height>814</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -57,7 +57,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="fleetTab">
        <attribute name="title">
@@ -79,9 +79,12 @@
            <property name="title">
             <string>Player Fleet</string>
            </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_2">
+           <layout class="QVBoxLayout" name="verticalLayout_3">
             <item>
              <widget class="QTableView" name="playerShips">
+              <property name="selectionBehavior">
+               <enum>QAbstractItemView::SelectColumns</enum>
+              </property>
               <property name="iconSize">
                <size>
                 <width>200</width>
@@ -109,31 +112,18 @@
              </widget>
             </item>
             <item>
-             <layout class="QVBoxLayout" name="verticalLayout_4">
-              <item>
-               <spacer name="verticalSpacer">
-                <property name="orientation">
-                 <enum>Qt::Vertical</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>20</width>
-                  <height>40</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-              <item>
-               <widget class="QPushButton" name="addPlayerShipButton">
-                <property name="text">
-                 <string>Add Ship</string>
-                </property>
-               </widget>
-              </item>
+             <layout class="QHBoxLayout" name="horizontalLayout_2">
               <item>
                <widget class="QPushButton" name="removePlayerShipButton">
                 <property name="text">
                  <string>Remove Ship</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="makePlayerShipImportantButton">
+                <property name="text">
+                 <string>Make Important</string>
                 </property>
                </widget>
               </item>
@@ -151,7 +141,7 @@
            <property name="title">
             <string>Enemy Fleet</string>
            </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_3">
+           <layout class="QVBoxLayout" name="verticalLayout_4">
             <item>
              <widget class="QTableView" name="enemyShips">
               <property name="iconSize">
@@ -181,31 +171,18 @@
              </widget>
             </item>
             <item>
-             <layout class="QVBoxLayout" name="verticalLayout_5">
-              <item>
-               <spacer name="verticalSpacer_2">
-                <property name="orientation">
-                 <enum>Qt::Vertical</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>20</width>
-                  <height>40</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-              <item>
-               <widget class="QPushButton" name="addEnemyShipButton">
-                <property name="text">
-                 <string>Add Ship</string>
-                </property>
-               </widget>
-              </item>
+             <layout class="QHBoxLayout" name="horizontalLayout_3">
               <item>
                <widget class="QPushButton" name="removeEnemyShipButton">
                 <property name="text">
                  <string>Remove Ship</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="makeEnemyShipImportantButton">
+                <property name="text">
+                 <string>Make Important</string>
                 </property>
                </widget>
               </item>
@@ -251,10 +228,61 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tab_2">
+      <widget class="QWidget" name="shipBrowserTab">
        <attribute name="title">
-        <string>Page</string>
+        <string>Ship Browser</string>
        </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_5">
+        <item>
+         <widget class="QTreeWidget" name="shipBrowserTree">
+          <property name="iconSize">
+           <size>
+            <width>250</width>
+            <height>250</height>
+           </size>
+          </property>
+          <property name="verticalScrollMode">
+           <enum>QAbstractItemView::ScrollPerPixel</enum>
+          </property>
+          <property name="sortingEnabled">
+           <bool>true</bool>
+          </property>
+          <column>
+           <property name="text">
+            <string>Ship</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Designation</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Value</string>
+           </property>
+          </column>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_7">
+          <item>
+           <widget class="QPushButton" name="addPlayerShipButton">
+            <property name="text">
+             <string>Add To Player Fleet</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="addEnemyShipButton">
+            <property name="text">
+             <string>Add To Enemy Fleet</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </widget>
      </widget>
     </item>
@@ -265,8 +293,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1251</width>
-     <height>26</height>
+     <width>920</width>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

@@ -21,9 +21,11 @@ class MainWindow(QtGui.QMainWindow):
         
         self.connect(self.ui.addPlayerShipButton, QtCore.SIGNAL('clicked()'), lambda: self.addShipCallback(True))
         self.connect(self.ui.removePlayerShipButton, QtCore.SIGNAL('clicked()'), lambda: self.removeShipCallback(True))
+        self.connect(self.ui.makePlayerShipImportantButton, QtCore.SIGNAL('clicked()'), lambda: self.makeShipImportantCallback(True))
         
         self.connect(self.ui.addEnemyShipButton, QtCore.SIGNAL('clicked()'), lambda: self.addShipCallback(False))
         self.connect(self.ui.removeEnemyShipButton, QtCore.SIGNAL('clicked()'), lambda: self.removeShipCallback(False))
+        self.connect(self.ui.makeEnemyShipImportantButton, QtCore.SIGNAL('clicked()'), lambda: self.makeShipImportantCallback(False))
         
         self.init_data(STARFARER_ROOT)
     
@@ -67,6 +69,50 @@ class MainWindow(QtGui.QMainWindow):
         
         with open(self.sfMissionList, 'r') as file:
             self.missionList = ast.literal_eval(file.read())
+        
+        self.populateShipBrowser()
+    
+    def populateShipBrowser(self):
+        self.ui.shipBrowserTree.clear()
+    
+        shipData = dict([ (ship['id'], ship) for ship in self.shipData.values() ])
+        for ship in sorted(self.allShips.values(), key=lambda x: x['variantId'].lower()):
+            hullName = ship['hullId']
+            variantName = ship['variantId']
+            icon = self.allSprites[hullName]
+            displayName = ' '.join((shipData[hullName]['name'] + '-class', ship['displayName'], shipData[hullName]['designation']))
+            
+            fleetPts = '% 3d' % int(shipData[hullName]['fleet pts'])
+            
+            newItem = QtGui.QTreeWidgetItem(['', displayName, fleetPts, variantName, 'SHIP'])
+            newItem.setIcon(0, icon)
+            self.ui.shipBrowserTree.addTopLevelItem(newItem)
+        
+        wingData = dict([ (wing['variant'], wing) for wing in self.wingData.values() ])
+        for fighter in sorted(self.allWings.values(), key=lambda x: x['variantId'].lower()):
+            print fighter
+            hullName = fighter['hullId']
+            variantName = fighter['variantId']
+            icon = self.allSprites[hullName]
+            wingInfo = wingData[variantName]
+            wingName = wingInfo['id']
+            
+            displayHullName = hullName.split('_')
+            for i, v in enumerate(displayHullName):
+                displayHullName[i] = v[0].upper() + v[1:]
+            displayHullName = ' '.join(displayHullName)
+            displayName = ' '.join((displayHullName, fighter['displayName'], 'Wing'))
+            
+            fleetPts = '% 3d' % int(wingInfo['fleet pts'])
+            
+            newItem = QtGui.QTreeWidgetItem(['x%s' % wingInfo['num'], displayName, fleetPts, wingName, 'FIGHTER_WING'])
+            newItem.setIcon(0, icon)
+            self.ui.shipBrowserTree.addTopLevelItem(newItem)
+        
+        self.ui.shipBrowserTree.sortItems(1, 0)
+        self.ui.shipBrowserTree.sortItems(2, 0)
+        for col in xrange(self.ui.shipBrowserTree.columnCount()):
+            self.ui.shipBrowserTree.resizeColumnToContents(col)
     
     def readDataFile(self, dataFilePath):
         with open(dataFilePath) as f:
@@ -103,7 +149,7 @@ class MainWindow(QtGui.QMainWindow):
                             'variant':   groups[1],
                             'type':      groups[2],
                             'name':      groups[4],
-                            'important': groups[5]
+                            'flagship':  groups[5]
                         })
                 elif 'api.addBriefingItem' in line:
                     matchPattern = r'api.addBriefingItem *?\( *?"(.+?)" *?\)'
@@ -145,6 +191,8 @@ class MainWindow(QtGui.QMainWindow):
         self.playerListModel = QtGui.QStandardItemModel()
         self.enemyListModel = QtGui.QStandardItemModel()
         
+        vo = self.ui.playerShips.viewOptions()
+        vo.displayAlignment = QtCore.Qt.AlignCenter
         self.ui.playerShips.setModel(self.playerListModel)
         self.ui.enemyShips.setModel(self.enemyListModel)
         
@@ -152,18 +200,36 @@ class MainWindow(QtGui.QMainWindow):
             listModel.setVerticalHeaderItem(0, QtGui.QStandardItem("Ship"))
             listModel.setVerticalHeaderItem(1, QtGui.QStandardItem("Variant"))
             listModel.setVerticalHeaderItem(2, QtGui.QStandardItem("Name"))
+            listModel.setVerticalHeaderItem(3, QtGui.QStandardItem("Value"))
+            listModel.setVerticalHeaderItem(4, QtGui.QStandardItem("Flagship"))
+            listModel.setVerticalHeaderItem(5, QtGui.QStandardItem("Critical"))
         
         playerCol = 0
         enemyCol = 0
+        # get values of missionShips
+        missionShipValues = {}
+        for ship in missionShips:
+            if ship['type'] == 'SHIP':
+                variant = self.allShips[ship['variant']]
+                value = self.shipData[variant['hullId']]['fleet pts']
+            else:
+                value = self.wingData[ship['variant']]['fleet pts']
+            missionShipValues[ship['variant']] = value
+        
+        missionShips = sorted(missionShips, key=lambda x: -int(missionShipValues[x['variant']]))
+        missionShips = sorted(missionShips, key=lambda x: x['flagship'] == 'false')
         for ship in missionShips:
             if ship['type'] == 'SHIP':
                 variant = self.allShips[ship['variant']]
                 iconText = ''
+                value = missionShipValues[ship['variant']]
             else:
                 variantName = self.wingData[ship['variant']]['variant']
                 variant = self.allWings[variantName]
                 iconText = "x%s" % self.wingData[ship['variant']]['num']
+                value = missionShipValues[ship['variant']]
             
+            flagShip = ship['flagship']
             variantName = ship['variant']
             hullId = variant['hullId']
             shipName = ship['name']
@@ -179,6 +245,8 @@ class MainWindow(QtGui.QMainWindow):
             listModel.setItem(0, col-1, QtGui.QStandardItem(self.allSprites[hullId], iconText))
             listModel.setItem(1, col-1, QtGui.QStandardItem(variantName))
             listModel.setItem(2, col-1, QtGui.QStandardItem(shipName if shipName else ''))
+            listModel.setItem(3, col-1, QtGui.QStandardItem(value))
+            listModel.setItem(4, col-1, QtGui.QStandardItem(flagShip))
         
         self.ui.playerShips.resizeRowsToContents()
         self.ui.playerShips.resizeColumnsToContents()
@@ -187,8 +255,8 @@ class MainWindow(QtGui.QMainWindow):
     
     def makeShipLines(self, fleets, side='PLAYER', indent = '        '):
         lines = []
-        lineWithoutName = indent + 'api.addToFleet(FleetSide.%(side)s, "%(variant)s", FleetMemberType.%(type)s, %(important)s);'
-        lineWithName    = indent + 'api.addToFleet(FleetSide.%(side)s, "%(variant)s", FleetMemberType.%(type)s, "%(name)s", %(important)s);'
+        lineWithoutName = indent + 'api.addToFleet(FleetSide.%(side)s, "%(variant)s", FleetMemberType.%(type)s, %(flagship)s);'
+        lineWithName    = indent + 'api.addToFleet(FleetSide.%(side)s, "%(variant)s", FleetMemberType.%(type)s, "%(name)s", %(flagship)s);'
         for ship in fleets:
             if ship['side'] == side:
                 lines.append((lineWithName if ship['name'] else lineWithoutName) % ship)
@@ -205,7 +273,7 @@ class MainWindow(QtGui.QMainWindow):
                     'variant': listModel.item(1, column).text(),
                     'name': listModel.item(2, column).text(),
                     'side': side,
-                    'important': False,           # Not finished yet
+                    'flagship': listModel.item(4, column).text(),
                 }
                 thisShip['type'] = 'SHIP' if thisShip['variant'] in self.allShips.keys() else 'FIGHTER_WING'
                 missionShips.append(thisShip)
@@ -259,16 +327,36 @@ class MainWindow(QtGui.QMainWindow):
         self.loadMission(saveDir)
     
     def addShipCallback(self, player=True):
+        item = self.ui.shipBrowserTree.currentItem()
+        print item.text(1)
+        variant = str(item.text(3))
+        type = str(item.text(4))
+        
+        newShip = {
+            'variant': variant,
+            'name': '',
+            'flagship': 'false',
+            'type': type,
+        }
         if player:
-            print "Add player ship"
+            newShip['side'] = 'PLAYER'
         else:
-            print "Add enemy ship"
+            newShip['side'] = 'ENEMY'
+        
+        self.missionData['fleets'].append(newShip)
+        self.populateFleets(self.missionData['fleets'])
     
     def removeShipCallback(self, player=True):
         if player:
             print "Remove player ship"
         else:
             print "Remove enemy ship"
+    
+    def makeShipImportantCallback(self, player=True):
+        if player:
+            print "Make player ship important"
+        else:
+            print "Make enemy ship important"
     
     def quitCallback(self):
         self.Quit()
